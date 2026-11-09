@@ -28,7 +28,8 @@
       z-index: 10;
     }
 
-    .header-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 12px; }
+    .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .header-title { font-size: 1.25rem; font-weight: bold; }
 
     .controls { display: flex; gap: 8px; flex-wrap: wrap; }
     input[type="search"], select {
@@ -40,7 +41,7 @@
       min-width: 140px;
     }
 
-    .fav-filter-btn {
+    .fav-filter-btn, .btn-icon-header {
       padding: 8px 12px;
       border: 1px solid var(--border);
       background: var(--card-bg);
@@ -142,7 +143,10 @@
 <body>
 
   <header>
-    <div class="header-title">📌 המקומות שלי</div>
+    <div class="header-top">
+      <div class="header-title">📌 המקומות שלי</div>
+      <button class="btn-icon-header" onclick="openSettingsModal()" title="הגדרות">⚙️ הגדרות</button>
+    </div>
     <div class="controls">
       <input type="search" id="searchInput" placeholder="חיפוש לפי שם או כתובת..." oninput="renderPlaces()">
       <select id="categoryFilter" onchange="renderPlaces()">
@@ -156,10 +160,10 @@
 
   <button class="fab" onclick="openModal()">+</button>
 
-  <!-- Modal -->
+  <!-- Modal עריכה/הוספה -->
   <div class="modal-backdrop" id="modalBackdrop">
     <div class="modal">
-      <h3 id="modalTitle">הוספת מקום جديد</h3>
+      <h3 id="modalTitle">הוספת מקום חדש</h3>
       <form id="placeForm" onsubmit="handleFormSubmit(event)">
         <input type="hidden" id="placeId">
         
@@ -211,29 +215,68 @@
     </div>
   </div>
 
-  <script>
-    // ⚙️ הגדרת כתובת ה-Web App של Google Apps Script
-    const SCRIPT_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE";
+  <!-- Modal הגדרות -->
+  <div class="modal-backdrop" id="settingsModalBackdrop">
+    <div class="modal">
+      <h3>⚙️ הגדרות חיבור ל-Google Sheets</h3>
+      <div class="form-group">
+        <label>כתובת ה-Web App של Google Apps Script (URL):</label>
+        <input type="url" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+        <small style="color:var(--text-muted); font-size:0.75rem; margin-top:4px;">
+          הדבק כאן את הקישור שקיבלת בעת הפריסה (Deploy as Web App).
+        </small>
+      </div>
 
+      <div class="modal-buttons">
+        <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">ביטול</button>
+        <button type="button" class="btn btn-primary" onclick="saveSettings()">שמירת הגדרות</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let SCRIPT_URL = localStorage.getItem("script_url") || "";
     let places = JSON.parse(localStorage.getItem("places_data") || "[]");
     let filterFavOnly = false;
 
-    // אתחול
     document.addEventListener("DOMContentLoaded", () => {
       renderPlaces();
-      syncFromSheet();
+      if (SCRIPT_URL) {
+        syncFromSheet();
+      } else {
+        // אם אין כתובת מוגדרת, יפתח חלון ההגדרות באופן אוטומטי
+        openSettingsModal();
+      }
     });
 
     function saveLocal() {
       localStorage.setItem("places_data", JSON.stringify(places));
     }
 
+    /* ניהול מודאל הגדרות */
+    function openSettingsModal() {
+      document.getElementById("scriptUrlInput").value = SCRIPT_URL;
+      document.getElementById("settingsModalBackdrop").classList.add("active");
+    }
+
+    function closeSettingsModal() {
+      document.getElementById("settingsModalBackdrop").classList.remove("active");
+    }
+
+    function saveSettings() {
+      const url = document.getElementById("scriptUrlInput").value.trim();
+      SCRIPT_URL = url;
+      localStorage.setItem("script_url", url);
+      closeSettingsModal();
+      if (SCRIPT_URL) syncFromSheet();
+    }
+
+    /* ניהול כרטיסיות ותצוגה */
     function renderPlaces() {
       const feed = document.getElementById("placesFeed");
       const search = document.getElementById("searchInput").value.toLowerCase();
       const catFilter = document.getElementById("categoryFilter").value;
 
-      // עדכון רשימת הקטגוריות בסינון
       const categories = [...new Set(places.map(p => p.category).filter(Boolean))];
       const catSelect = document.getElementById("categoryFilter");
       const currentCat = catSelect.value;
@@ -348,9 +391,9 @@
       deleteFromSheet(id);
     }
 
-    // סנכרון מול Google Sheets
+    /* תקשורת מול Google Apps Script */
     async function syncFromSheet() {
-      if (!SCRIPT_URL || SCRIPT_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
+      if (!SCRIPT_URL) return;
       try {
         const res = await fetch(`${SCRIPT_URL}?action=getPlaces`);
         const data = await res.json();
@@ -365,7 +408,7 @@
     }
 
     async function syncPlaceToSheet(place) {
-      if (!SCRIPT_URL || SCRIPT_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
+      if (!SCRIPT_URL) return;
       try {
         await fetch(SCRIPT_URL, {
           method: "POST",
@@ -377,7 +420,7 @@
     }
 
     async function deleteFromSheet(id) {
-      if (!SCRIPT_URL || SCRIPT_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) return;
+      if (!SCRIPT_URL) return;
       try {
         await fetch(SCRIPT_URL, {
           method: "POST",

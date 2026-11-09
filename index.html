@@ -18,6 +18,7 @@
       --bg-color: #f4f6f9;
       --card-bg: #ffffff;
       --primary: #2563eb;
+      --primary-dark: #1a365d;
       --text-main: #1e293b;
       --text-muted: #64748b;
       --border: #e2e8f0;
@@ -26,6 +27,8 @@
       --amber: #ffb830;
       --glass: rgba(255,255,255,0.04);
       --rs: 8px;
+      --radius: 12px;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
@@ -43,7 +46,7 @@
     .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .header-title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; gap: 8px; }
 
-    /* ─ VERSION BADGE STYLES (מתואם ל-MyWorkLog) ─ */
+    /* ─ VERSION BADGE STYLES ─ */
     .vbadge {
       font-family: monospace;
       font-size: 0.7rem;
@@ -83,7 +86,81 @@
     }
     .fav-filter-btn.active { background: #fef3c7; border-color: var(--star); color: #b45309; }
 
-    .feed { padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    /* ─ CURRENCY CONVERTER CARD STYLES ─ */
+    .converter-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin: 16px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+    .converter-card h2 {
+      font-size: 1.05rem;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--primary-dark);
+    }
+    .converter-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .converter-input-group label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .converter-input-group input {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 1.1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      outline: none;
+    }
+    .quick-amounts {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .quick-btn {
+      background: #edf2f7;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .quick-btn:hover { background: #e2e8f0; }
+    .rates-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      background: #f8fafc;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .rate-item span {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .rate-item strong {
+      font-size: 1rem;
+      color: var(--primary);
+    }
+
+    .feed { padding: 0 16px 16px 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 
     .card {
       background: var(--card-bg);
@@ -364,6 +441,36 @@
     </div>
   </header>
 
+  <!-- 🔀 מחשבון המרת מטבע (PLN) -->
+  <div class="converter-card">
+    <h2>🔀 מחשבון המרת מטבע (PLN)</h2>
+    <div class="converter-input-group">
+      <label for="pln-amount">סכום בזלוטי (PLN):</label>
+      <input type="number" id="pln-amount" value="100" placeholder="הכנס סכום בזלוטי">
+    </div>
+    <div class="quick-amounts">
+      <button class="quick-btn" onclick="setAmount(30)">30 zł</button>
+      <button class="quick-btn" onclick="setAmount(50)">50 zł</button>
+      <button class="quick-btn" onclick="setAmount(100)">100 zł</button>
+      <button class="quick-btn" onclick="setAmount(200)">200 zł</button>
+      <button class="quick-btn" onclick="setAmount(500)">500 zł</button>
+    </div>
+    <div class="rates-grid">
+      <div class="rate-item">
+        <span>שקלים (ILS)</span>
+        <strong id="res-ils">-- ₪</strong>
+      </div>
+      <div class="rate-item">
+        <span>דולרים (USD)</span>
+        <strong id="res-usd">-- $</strong>
+      </div>
+      <div class="rate-item">
+        <span>אירו (EUR)</span>
+        <strong id="res-eur">-- €</strong>
+      </div>
+    </div>
+  </div>
+
   <!-- מסך ראשי: רשימת כרטיסיות -->
   <main class="feed" id="placesFeed"></main>
 
@@ -495,7 +602,7 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════
-       RESET & MAINTENANCE MODAL (מודאל איפוס מתוך index_2.html)
+       RESET & MAINTENANCE MODAL
        ═══════════════════════════════════════════════════════ -->
   <div id="modal-reset" class="moverlay hidden" role="dialog" aria-modal="true">
     <div class="mbox sm">
@@ -566,6 +673,41 @@
     let places = JSON.parse(localStorage.getItem("places_data") || "[]");
     let filterFavOnly = false;
 
+    /* ─── CURRENCY CONVERTER LOGIC ─── */
+    const RATE_ILS = 0.92;
+    const RATE_USD = 0.25;
+    const RATE_EUR = 0.23;
+
+    function initCurrencyConverter() {
+      const plnInput = document.getElementById('pln-amount');
+      if (plnInput) {
+        plnInput.addEventListener('input', calculateCurrency);
+        calculateCurrency();
+      }
+    }
+
+    function calculateCurrency() {
+      const plnInput = document.getElementById('pln-amount');
+      const resIls = document.getElementById('res-ils');
+      const resUsd = document.getElementById('res-usd');
+      const resEur = document.getElementById('res-eur');
+
+      if (!plnInput || !resIls || !resUsd || !resEur) return;
+
+      const val = parseFloat(plnInput.value) || 0;
+      resIls.textContent = (val * RATE_ILS).toFixed(1) + ' ₪';
+      resUsd.textContent = (val * RATE_USD).toFixed(1) + ' $';
+      resEur.textContent = (val * RATE_EUR).toFixed(1) + ' €';
+    }
+
+    function setAmount(amt) {
+      const plnInput = document.getElementById('pln-amount');
+      if (plnInput) {
+        plnInput.value = amt;
+        calculateCurrency();
+      }
+    }
+
     // רישום Service Worker עבור PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -577,6 +719,7 @@
 
     document.addEventListener("DOMContentLoaded", () => {
       vBadgeInit();
+      initCurrencyConverter();
       renderPlaces();
       if (SCRIPT_URL) {
         syncFromSheet();
@@ -679,7 +822,7 @@
       localStorage.setItem("places_data", JSON.stringify(places));
     }
 
-    /* ניהול דפים ייעודיים (Place Page, Settings Page & Home Page) */
+    /* ניהול דפים ייעודיים */
     function openPlacePage(place = null) {
       document.getElementById("placeId").value = place ? place.id : "";
       document.getElementById("nameInput").value = place ? place.name : "";
@@ -762,7 +905,6 @@
       const tagsRaw = document.getElementById("tagsInput").value;
       const isHomeSelected = document.getElementById("isHomeInput").checked;
 
-      // אם נבחר אתר בית חדש, ניקוי ההגדרה ממקומות קודמים
       if (isHomeSelected) {
         places.forEach(p => p.isHome = false);
       }
@@ -807,7 +949,7 @@
       deleteFromSheet(id);
     }
 
-    /* ייצוא נתונים לקובץ JSON */
+    /* ייצוא נתונים */
     function exportPlacesJSON() {
       if (places.length === 0) {
         showToast("אין נתונים לייצוא", "warning");
@@ -823,7 +965,6 @@
       showToast("קובץ JSON יורד בהצלחה");
     }
 
-    /* ייצוא נתונים לקובץ CSV */
     function exportPlacesCSV() {
       if (places.length === 0) {
         showToast("אין נתונים לייצוא", "warning");
@@ -856,7 +997,6 @@
       showToast("קובץ CSV יורד בהצלחה");
     }
 
-    /* ייבוא נתונים מקובץ חיצוני */
     function importPlacesFile(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -932,7 +1072,7 @@
       });
 
       if (filtered.length === 0) {
-        feed.innerHTML = '<div style="text-align:center; color: var(--text-muted); padding: 40px;">לא נמצאו מקומות</div>';
+        feed.innerHTML = '<div style="text-align:center; color: var(--text-muted); padding: 40px; grid-column: 1/-1;">לא נמצאו מקומות</div>';
         return;
       }
 
@@ -1005,7 +1145,7 @@
       }
     });
 
-    /* תור פעולות אופליין (Offline Action Queue) */
+    /* תור פעולות אופליין */
     function getActionQueue() {
       return JSON.parse(localStorage.getItem("places_action_queue") || "[]");
     }

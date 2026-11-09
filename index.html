@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ניהול כרטיסיות מקומות</title>
 
-
   <style>
     :root {
       --bg-color: #f4f6f9;
@@ -83,9 +82,9 @@
     .card-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 8px; }
     .btn-icon { background: none; border: none; cursor: pointer; font-size: 0.9rem; color: var(--text-muted); }
 
-.fab {
+    .fab {
       position: fixed;
-      bottom: 80px;
+      bottom: 20px;
       left: 20px;
       width: 56px;
       height: 56px;
@@ -100,58 +99,6 @@
       align-items: center;
       justify-content: center;
       z-index: 90;
-    }
-
-    /* Bottom Navigation Bar */
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 60px;
-      background: var(--card-bg);
-      border-top: 1px solid var(--border);
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      z-index: 100;
-    }
-    .nav-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-size: 0.75rem;
-      cursor: pointer;
-      width: 50%;
-      height: 100%;
-      justify-content: center;
-    }
-    .nav-item.active {
-      color: var(--primary);
-      font-weight: bold;
-    }
-    .nav-item span { font-size: 1.2rem; }
-
-    /* Map Container */
-    .view-container { display: none; }
-    .view-container.active { display: block; }
-    #mapView { height: calc(100vh - 140px); width: 100%; border-radius: 8px; }
-      width: 56px;
-      height: 56px;
-      border-radius: 28px;
-      background: var(--primary);
-      color: white;
-      font-size: 24px;
-      border: none;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
     /* Dedicated Page Views */
@@ -197,7 +144,6 @@
       margin: 0 auto;
     }
 
-    .modal h3 { margin-bottom: 4px; }
     .form-group { display: flex; flex-direction: column; gap: 4px; }
     .form-group label { font-size: 0.85rem; font-weight: 500; }
     .form-group input, .form-group textarea, .form-group select {
@@ -211,8 +157,7 @@
     .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.9rem; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-secondary { background: #e2e8f0; color: var(--text-main); }
-  </style>
-<style>
+
     /* עיצוב התראות ובאנר אופליין */
     .offline-banner {
       background: #ef4444;
@@ -263,7 +208,7 @@
   <header>
     <div class="header-top">
       <div class="header-title">📌 המקומות שלי</div>
-<div>
+      <div>
         <button class="btn-icon-header" onclick="syncFromSheet()" title="רענן מגיליון">🔄 רענון</button>
         <button class="btn-icon-header" onclick="openSettingsPage()" title="הגדרות">⚙️ הגדרות</button>
       </div>
@@ -277,7 +222,7 @@
     </div>
   </header>
 
-<!-- מסך ראשי: רשימת כרטיסיות -->
+  <!-- מסך ראשי: רשימת כרטיסיות -->
   <main class="feed" id="placesFeed"></main>
 
   <button class="fab" onclick="openPlacePage()">+</button>
@@ -386,86 +331,61 @@
   </div>
 
   <script>
-let SCRIPT_URL = localStorage.getItem("script_url") || "";
+    let SCRIPT_URL = localStorage.getItem("script_url") || "";
     let places = JSON.parse(localStorage.getItem("places_data") || "[]");
     let filterFavOnly = false;
-    let currentTab = "cards";
-    let mapInstance = null;
-    let mapMarkers = [];
 
     document.addEventListener("DOMContentLoaded", () => {
       renderPlaces();
       if (SCRIPT_URL) {
         syncFromSheet();
       } else {
-        openSettingsModal();
+        openSettingsPage();
       }
     });
-
-    /* ניהול מעבר בין לשוניות (Tabs) */
-    function switchTab(tab) {
-      currentTab = tab;
-      document.getElementById("cardsViewContainer").classList.toggle("active", tab === "cards");
-      document.getElementById("mapViewContainer").classList.toggle("active", tab === "map");
-      document.getElementById("tabCardsBtn").classList.toggle("active", tab === "cards");
-      document.getElementById("tabMapBtn").classList.toggle("active", tab === "map");
-
-      if (tab === "map") {
-        setTimeout(initOrUpdateMap, 100);
-      }
-    }
-
-    /* אתחול ועדכון מפה (Leaflet / OpenStreetMap) */
-    function initOrUpdateMap() {
-      if (!mapInstance) {
-        // מירכוז מפה דיפולטיבי (לדוגמה: קרקוב / תל אביב לפי הנתונים)
-        mapInstance = L.map('mapView').setView([50.0617, 19.9374], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '© OpenStreetMap'
-        }).addTo(mapInstance);
-      }
-
-      // ניקוי סמנים קודמים
-      mapMarkers.forEach(m => mapInstance.removeLayer(m));
-      mapMarkers = [];
-
-      const bounds = [];
-
-      places.forEach(p => {
-        // חילוץ קואורדינטות מתוך קישור Google Maps אם קיימות (לדוגמה ?q=32.08,34.78 או URL)
-        let lat = null, lng = null;
-        if (p.googleMapsUrl) {
-          const match = p.googleMapsUrl.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-          if (match) {
-            lat = parseFloat(match[1]);
-            lng = parseFloat(match[2]);
-          }
-        }
-
-        if (lat && lng) {
-          const marker = L.marker([lat, lng]).addTo(mapInstance)
-            .bindPopup(`
-              <b>${escapeHtml(p.name)}</b><br>
-              ${escapeHtml(p.category || '')}<br>
-              ${p.addressText ? escapeHtml(p.addressText) + '<br>' : ''}
-              ${p.googleMapsUrl ? `<a href="${p.googleMapsUrl}" target="_blank">פתח ב-Google Maps</a>` : ''}
-            `);
-          mapMarkers.push(marker);
-          bounds.push([lat, lng]);
-        }
-      });
-
-      if (bounds.length > 0) {
-        mapInstance.fitBounds(bounds, { padding: [30, 30] });
-      }
-    }
 
     function saveLocal() {
       localStorage.setItem("places_data", JSON.stringify(places));
     }
 
-function handleFormSubmit(e) {
+    /* ניהול דפים ייעודיים (Place Page & Settings Page) */
+    function openPlacePage(place = null) {
+      document.getElementById("placeId").value = place ? place.id : "";
+      document.getElementById("nameInput").value = place ? place.name : "";
+      document.getElementById("categoryInput").value = place ? place.category || "" : "";
+      document.getElementById("addressTextInput").value = place ? place.addressText || "" : "";
+      document.getElementById("googleMapsUrlInput").value = place ? place.googleMapsUrl || "" : "";
+      document.getElementById("ratingInput").value = place ? place.rating || 5 : 5;
+      document.getElementById("tagsInput").value = place && place.tags ? place.tags.join(", ") : "";
+      document.getElementById("descriptionInput").value = place ? place.description || "" : "";
+      document.getElementById("isFavoriteInput").checked = place ? !!place.isFavorite : false;
+      
+      document.getElementById("pageTitle").innerText = place ? "עריכת מקום" : "הוספת מקום חדש";
+      document.getElementById("placePageView").classList.add("active");
+    }
+
+    function closePlacePage() {
+      document.getElementById("placePageView").classList.remove("active");
+    }
+
+    function openSettingsPage() {
+      document.getElementById("scriptUrlInput").value = SCRIPT_URL;
+      document.getElementById("settingsPageView").classList.add("active");
+    }
+
+    function closeSettingsPage() {
+      document.getElementById("settingsPageView").classList.remove("active");
+    }
+
+    function saveSettings() {
+      const url = document.getElementById("scriptUrlInput").value.trim();
+      SCRIPT_URL = url;
+      localStorage.setItem("script_url", url);
+      closeSettingsPage();
+      if (SCRIPT_URL) syncFromSheet();
+    }
+
+    function handleFormSubmit(e) {
       e.preventDefault();
       const id = document.getElementById("placeId").value || "place_" + Date.now();
       const tagsRaw = document.getElementById("tagsInput").value;
@@ -492,13 +412,21 @@ function handleFormSubmit(e) {
 
       saveLocal();
       renderPlaces();
-      closeModal();
+      closePlacePage();
       syncPlaceToSheet(placeData);
     }
 
     function editPlace(id) {
       const place = places.find(p => p.id === id);
-      if (place) openModal(place);
+      if (place) openPlacePage(place);
+    }
+
+    function deletePlace(id) {
+      if (!confirm("האם למחוק את המקום?")) return;
+      places = places.filter(p => p.id !== id);
+      saveLocal();
+      renderPlaces();
+      deleteFromSheet(id);
     }
 
     /* ייצוא נתונים לקובץ JSON */
@@ -572,7 +500,7 @@ function handleFormSubmit(e) {
               const newPlaces = [];
               for (let i = 1; i < lines.length; i++) {
                 const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
-                if (cols[2]) { // Name exists
+                if (cols[2]) {
                   newPlaces.push({
                     id: cols[0] || "place_imp_" + Date.now() + "_" + i,
                     timestamp: cols[1] || new Date().toISOString(),
@@ -610,7 +538,7 @@ function handleFormSubmit(e) {
       localStorage.removeItem("places_data");
       localStorage.removeItem("places_action_queue");
       renderPlaces();
-      closeSettingsModal();
+      closeSettingsPage();
       showToast("הנתונים המקומיים נוקו", "warning");
     }
 
@@ -671,70 +599,7 @@ function handleFormSubmit(e) {
       renderPlaces();
     }
 
-    function openModal(place = null) {
-      document.getElementById("placeId").value = place ? place.id : "";
-      document.getElementById("nameInput").value = place ? place.name : "";
-      document.getElementById("categoryInput").value = place ? place.category || "" : "";
-      document.getElementById("addressTextInput").value = place ? place.addressText || "" : "";
-      document.getElementById("googleMapsUrlInput").value = place ? place.googleMapsUrl || "" : "";
-      document.getElementById("ratingInput").value = place ? place.rating || 5 : 5;
-      document.getElementById("tagsInput").value = place && place.tags ? place.tags.join(", ") : "";
-      document.getElementById("descriptionInput").value = place ? place.description || "" : "";
-      document.getElementById("isFavoriteInput").checked = place ? !!place.isFavorite : false;
-      
-      document.getElementById("modalTitle").innerText = place ? "עריכת מקום" : "הוספת מקום חדש";
-      document.getElementById("modalBackdrop").classList.add("active");
-    }
-
-    function closeModal() {
-      document.getElementById("modalBackdrop").classList.remove("active");
-    }
-
-function handleFormSubmit(e) {
-      e.preventDefault();
-      const id = document.getElementById("placeId").value || "place_" + Date.now();
-      const tagsRaw = document.getElementById("tagsInput").value;
-
-      const placeData = {
-        id: id,
-        timestamp: new Date().toISOString(),
-        name: document.getElementById("nameInput").value,
-        category: document.getElementById("categoryInput").value,
-        addressText: document.getElementById("addressTextInput").value,
-        googleMapsUrl: document.getElementById("googleMapsUrlInput").value,
-        rating: parseFloat(document.getElementById("ratingInput").value) || 0,
-        tags: tagsRaw ? tagsRaw.split(",").map(t => t.trim()).filter(Boolean) : [],
-        description: document.getElementById("descriptionInput").value,
-        isFavorite: document.getElementById("isFavoriteInput").checked
-      };
-
-      const index = places.findIndex(p => p.id === id);
-      if (index >= 0) {
-        places[index] = placeData;
-      } else {
-        places.unshift(placeData);
-      }
-
-      saveLocal();
-      renderPlaces();
-      closePlacePage();
-      syncPlaceToSheet(placeData);
-    }
-
-    function editPlace(id) {
-      const place = places.find(p => p.id === id);
-      if (place) openPlacePage(place);
-    }
-
-    function deletePlace(id) {
-      if (!confirm("האם למחוק את המקום?")) return;
-      places = places.filter(p => p.id !== id);
-      saveLocal();
-      renderPlaces();
-      deleteFromSheet(id);
-    }
-
-/* ניהול התראות Toast ובאנר אופליין */
+    /* ניהול התראות Toast ובאנר אופליין */
     function showToast(message, type = "success") {
       const container = document.getElementById("toastContainer");
       if (!container) return;
@@ -814,7 +679,7 @@ function handleFormSubmit(e) {
       }
     }
 
-    /* תקשורת מול Google Apps Script המשודרגת עם Queue Support */
+    /* תקשורת מול Google Apps Script */
     async function syncFromSheet() {
       if (!SCRIPT_URL) return;
       try {
@@ -853,7 +718,7 @@ function handleFormSubmit(e) {
       }
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 שניות Timeout
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
         
         await fetch(SCRIPT_URL, {
           method: "POST",

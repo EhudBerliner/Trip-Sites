@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ניהול כרטיסיות מקומות</title>
+<!-- טעינת ספריית המפות Leaflet.js -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <style>
     :root {
       --bg-color: #f4f6f9;
@@ -81,10 +85,63 @@
     .card-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 8px; }
     .btn-icon { background: none; border: none; cursor: pointer; font-size: 0.9rem; color: var(--text-muted); }
 
-    .fab {
+.fab {
       position: fixed;
-      bottom: 20px;
+      bottom: 80px;
       left: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 28px;
+      background: var(--primary);
+      color: white;
+      font-size: 24px;
+      border: none;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 90;
+    }
+
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: var(--card-bg);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 100;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      cursor: pointer;
+      width: 50%;
+      height: 100%;
+      justify-content: center;
+    }
+    .nav-item.active {
+      color: var(--primary);
+      font-weight: bold;
+    }
+    .nav-item span { font-size: 1.2rem; }
+
+    /* Map Container */
+    .view-container { display: none; }
+    .view-container.active { display: block; }
+    #mapView { height: calc(100vh - 140px); width: 100%; border-radius: 8px; }
       width: 56px;
       height: 56px;
       border-radius: 28px;
@@ -204,9 +261,29 @@
     </div>
   </header>
 
-  <main class="feed" id="placesFeed"></main>
+<main>
+    <!-- לשונית 1: רשימת כרטיסיות -->
+    <div id="cardsViewContainer" class="view-container active">
+      <div class="feed" id="placesFeed"></div>
+    </div>
+
+    <!-- לשונית 2: תצוגת מפה -->
+    <div id="mapViewContainer" class="view-container" style="padding: 16px;">
+      <div id="mapView"></div>
+    </div>
+  </main>
 
   <button class="fab" onclick="openModal()">+</button>
+
+  <!-- סרגל ניווט תחתון -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="tabCardsBtn" onclick="switchTab('cards')">
+      <span>🎴</span> כרטיסיות
+    </button>
+    <button class="nav-item" id="tabMapBtn" onclick="switchTab('map')">
+      <span>🗺️</span> מפה
+    </button>
+  </nav>
 
   <!-- Modal עריכה/הוספה -->
   <div class="modal-backdrop" id="modalBackdrop">
@@ -283,19 +360,80 @@
   </div>
 
   <script>
-    let SCRIPT_URL = localStorage.getItem("script_url") || "";
+let SCRIPT_URL = localStorage.getItem("script_url") || "";
     let places = JSON.parse(localStorage.getItem("places_data") || "[]");
     let filterFavOnly = false;
+    let currentTab = "cards";
+    let mapInstance = null;
+    let mapMarkers = [];
 
     document.addEventListener("DOMContentLoaded", () => {
       renderPlaces();
       if (SCRIPT_URL) {
         syncFromSheet();
       } else {
-        // אם אין כתובת מוגדרת, יפתח חלון ההגדרות באופן אוטומטי
         openSettingsModal();
       }
     });
+
+    /* ניהול מעבר בין לשוניות (Tabs) */
+    function switchTab(tab) {
+      currentTab = tab;
+      document.getElementById("cardsViewContainer").classList.toggle("active", tab === "cards");
+      document.getElementById("mapViewContainer").classList.toggle("active", tab === "map");
+      document.getElementById("tabCardsBtn").classList.toggle("active", tab === "cards");
+      document.getElementById("tabMapBtn").classList.toggle("active", tab === "map");
+
+      if (tab === "map") {
+        setTimeout(initOrUpdateMap, 100);
+      }
+    }
+
+    /* אתחול ועדכון מפה (Leaflet / OpenStreetMap) */
+    function initOrUpdateMap() {
+      if (!mapInstance) {
+        // מירכוז מפה דיפולטיבי (לדוגמה: קרקוב / תל אביב לפי הנתונים)
+        mapInstance = L.map('mapView').setView([50.0617, 19.9374], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(mapInstance);
+      }
+
+      // ניקוי סמנים קודמים
+      mapMarkers.forEach(m => mapInstance.removeLayer(m));
+      mapMarkers = [];
+
+      const bounds = [];
+
+      places.forEach(p => {
+        // חילוץ קואורדינטות מתוך קישור Google Maps אם קיימות (לדוגמה ?q=32.08,34.78 או URL)
+        let lat = null, lng = null;
+        if (p.googleMapsUrl) {
+          const match = p.googleMapsUrl.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+          if (match) {
+            lat = parseFloat(match[1]);
+            lng = parseFloat(match[2]);
+          }
+        }
+
+        if (lat && lng) {
+          const marker = L.marker([lat, lng]).addTo(mapInstance)
+            .bindPopup(`
+              <b>${escapeHtml(p.name)}</b><br>
+              ${escapeHtml(p.category || '')}<br>
+              ${p.addressText ? escapeHtml(p.addressText) + '<br>' : ''}
+              ${p.googleMapsUrl ? `<a href="${p.googleMapsUrl}" target="_blank">פתח ב-Google Maps</a>` : ''}
+            `);
+          mapMarkers.push(marker);
+          bounds.push([lat, lng]);
+        }
+      });
+
+      if (bounds.length > 0) {
+        mapInstance.fitBounds(bounds, { padding: [30, 30] });
+      }
+    }
 
     function saveLocal() {
       localStorage.setItem("places_data", JSON.stringify(places));

@@ -76,6 +76,34 @@
     .card-header { display: flex; justify-content: space-between; align-items: flex-start; }
     .card-title { font-size: 1.1rem; font-weight: bold; }
     .category-badge { font-size: 0.75rem; background: #e0e7ff; color: #4338ca; padding: 2px 8px; border-radius: 12px; }
+    
+    .home-badge {
+      font-size: 0.75rem;
+      background: #fef3c7;
+      color: #b45309;
+      padding: 2px 8px;
+      border-radius: 12px;
+      border: 1px solid #fde68a;
+      font-weight: bold;
+    }
+
+    .btn-route {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      text-decoration: none;
+      margin-top: 8px;
+    }
 
     .address { font-size: 0.85rem; color: var(--text-muted); }
     .maps-link { font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 500; }
@@ -217,6 +245,7 @@
     <div class="header-top">
       <div class="header-title">📌 המקומות שלי</div>
       <div>
+        <button class="btn-icon-header" onclick="openHomePage()" title="אתר בית">🏠 בית</button>
         <button class="btn-icon-header" onclick="syncFromSheet()" title="רענן מגיליון">🔄 רענון</button>
         <button class="btn-icon-header" onclick="openSettingsPage()" title="הגדרות">⚙️ הגדרות</button>
       </div>
@@ -286,11 +315,28 @@
           <label for="isFavoriteInput">סימון כמועדף ★</label>
         </div>
 
+        <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
+          <input type="checkbox" id="isHomeInput">
+          <label for="isHomeInput">הגדר כאתר בית 🏠</label>
+        </div>
+
         <div class="modal-buttons" style="margin-top: 12px;">
           <button type="button" class="btn btn-secondary" onclick="closePlacePage()">ביטול</button>
           <button type="submit" class="btn btn-primary">שמירה</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- דף ייעודי: אתר בית וניווט מהיר -->
+  <div class="page-view" id="homePageView">
+    <div class="page-header">
+      <button class="btn-back" onclick="closeHomePage()">➡️ חזרה</button>
+      <h2>🏠 אתר בית (Base Location)</h2>
+    </div>
+
+    <div class="form-container" id="homePageContent">
+      <!-- הווידג'ט של אתר הבית יורנדר כאן דינמית -->
     </div>
   </div>
 
@@ -338,7 +384,7 @@
     </div>
   </div>
 
-<script>
+  <script>
     let SCRIPT_URL = localStorage.getItem("script_url") || "";
     let places = JSON.parse(localStorage.getItem("places_data") || "[]");
     let filterFavOnly = false;
@@ -365,7 +411,7 @@
       localStorage.setItem("places_data", JSON.stringify(places));
     }
 
-    /* ניהול דפים ייעודיים (Place Page & Settings Page) */
+    /* ניהול דפים ייעודיים (Place Page, Settings Page & Home Page) */
     function openPlacePage(place = null) {
       document.getElementById("placeId").value = place ? place.id : "";
       document.getElementById("nameInput").value = place ? place.name : "";
@@ -376,9 +422,49 @@
       document.getElementById("tagsInput").value = place && place.tags ? place.tags.join(", ") : "";
       document.getElementById("descriptionInput").value = place ? place.description || "" : "";
       document.getElementById("isFavoriteInput").checked = place ? !!place.isFavorite : false;
+      document.getElementById("isHomeInput").checked = place ? !!place.isHome : false;
       
       document.getElementById("pageTitle").innerText = place ? "עריכת מקום" : "הוספת מקום חדש";
       document.getElementById("placePageView").classList.add("active");
+    }
+
+    function openHomePage() {
+      const homePlace = places.find(p => p.isHome);
+      const container = document.getElementById("homePageContent");
+
+      if (!homePlace) {
+        container.innerHTML = `
+          <div style="text-align:center; padding: 20px;">
+            <p style="margin-bottom:12px; color:var(--text-muted)">עדיין לא הוגדר אתר בית.</p>
+            <p style="font-size:0.85rem; color:var(--text-muted)">ניתן להגדיר כל מקום כאתר בית על ידי עריכתו וסימון "הגדר כאתר בית 🏠".</p>
+          </div>
+        `;
+      } else {
+        const destQuery = encodeURIComponent(homePlace.addressText || homePlace.name);
+        const routeUrl = `https://www.google.com/maps/dir/?api=1&destination=${destQuery}&travelmode=walking`;
+
+        container.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3 style="font-size:1.2rem;">${escapeHtml(homePlace.name)}</h3>
+              <span class="home-badge">🏠 אתר בית</span>
+            </div>
+            ${homePlace.addressText ? `<div>📍 <b>כתובת:</b> ${escapeHtml(homePlace.addressText)}</div>` : ''}
+            ${homePlace.description ? `<div style="font-size:0.9rem; color:var(--text-muted)">${escapeHtml(homePlace.description)}</div>` : ''}
+            
+            <a href="${routeUrl}" target="_blank" class="btn-route">
+              🧭 פתח מסלול ניווט מהמיקום הנוכחי ב-Google Maps
+            </a>
+            <button type="button" class="btn btn-secondary" style="margin-top:8px" onclick="closeHomePage(); editPlace('${homePlace.id}');">✏️ ערוך אתר בית</button>
+          </div>
+        `;
+      }
+
+      document.getElementById("homePageView").classList.add("active");
+    }
+
+    function closeHomePage() {
+      document.getElementById("homePageView").classList.remove("active");
     }
 
     function closePlacePage() {
@@ -406,6 +492,12 @@
       e.preventDefault();
       const id = document.getElementById("placeId").value || "place_" + Date.now();
       const tagsRaw = document.getElementById("tagsInput").value;
+      const isHomeSelected = document.getElementById("isHomeInput").checked;
+
+      // אם נבחר אתר בית חדש, ניקוי ההגדרה ממקומות קודמים
+      if (isHomeSelected) {
+        places.forEach(p => p.isHome = false);
+      }
 
       const placeData = {
         id: id,
@@ -417,7 +509,8 @@
         rating: parseFloat(document.getElementById("ratingInput").value) || 0,
         tags: tagsRaw ? tagsRaw.split(",").map(t => t.trim()).filter(Boolean) : [],
         description: document.getElementById("descriptionInput").value,
-        isFavorite: document.getElementById("isFavoriteInput").checked
+        isFavorite: document.getElementById("isFavoriteInput").checked,
+        isHome: isHomeSelected
       };
 
       const index = places.findIndex(p => p.id === id);
@@ -468,7 +561,7 @@
         showToast("אין נתונים לייצוא", "warning");
         return;
       }
-      const headers = ["Record_ID", "Timestamp", "Name", "Category", "Address_Text", "Google_Maps_URL", "Rating", "Tags", "Description", "Is_Favorite"];
+      const headers = ["Record_ID", "Timestamp", "Name", "Category", "Address_Text", "Google_Maps_URL", "Rating", "Tags", "Description", "Is_Favorite", "Is_Home"];
       const rows = places.map(p => [
         `"${p.id || ''}"`,
         `"${p.timestamp || ''}"`,
@@ -479,7 +572,8 @@
         p.rating || 5,
         `"${Array.isArray(p.tags) ? p.tags.join(', ') : ''}"`,
         `"${(p.description || '').replace(/"/g, '""')}"`,
-        p.isFavorite ? "TRUE" : "FALSE"
+        p.isFavorite ? "TRUE" : "FALSE",
+        p.isHome ? "TRUE" : "FALSE"
       ]);
 
       const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
@@ -528,7 +622,8 @@
                     rating: parseFloat(cols[6]) || 5,
                     tags: cols[7] ? cols[7].split(';').map(t => t.trim()) : [],
                     description: cols[8] || "",
-                    isFavorite: cols[9] === "TRUE" || cols[9] === "true"
+                    isFavorite: cols[9] === "TRUE" || cols[9] === "true",
+                    isHome: cols[10] === "TRUE" || cols[10] === "true"
                   });
                 }
               }
@@ -590,6 +685,7 @@
             <div>
               <span class="card-title">${escapeHtml(p.name)}</span>
               ${p.isFavorite ? '<span style="color:var(--star)"> ★</span>' : ''}
+              ${p.isHome ? '<span class="home-badge">🏠 בית</span>' : ''}
             </div>
             ${p.category ? `<span class="category-badge">${escapeHtml(p.category)}</span>` : ''}
           </div>
@@ -716,7 +812,8 @@
             rating: parseFloat(p.rating || p.Rating) || 5,
             tags: Array.isArray(p.tags) ? p.tags : (p.tags || p.Tags || "").toString().split(',').map(t => t.trim()).filter(Boolean),
             description: String(p.description || p.Description || ""),
-            isFavorite: p.isFavorite === true || p.isFavorite === "TRUE" || p.Is_Favorite === true || p.Is_Favorite === "TRUE"
+            isFavorite: p.isFavorite === true || p.isFavorite === "TRUE" || p.Is_Favorite === true || p.Is_Favorite === "TRUE",
+            isHome: p.isHome === true || p.isHome === "TRUE" || p.Is_Home === true || p.Is_Home === "TRUE"
           })).filter(p => p.name.trim() !== "");
 
           saveLocal();

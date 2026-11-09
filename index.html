@@ -23,6 +23,9 @@
       --border: #e2e8f0;
       --star: #f59e0b;
       --danger: #ef4444;
+      --amber: #ffb830;
+      --glass: rgba(255,255,255,0.04);
+      --rs: 8px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
@@ -38,7 +41,28 @@
     }
 
     .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .header-title { font-size: 1.25rem; font-weight: bold; }
+    .header-title { font-size: 1.25rem; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+
+    /* ─ VERSION BADGE STYLES (מתואם ל-MyWorkLog) ─ */
+    .vbadge {
+      font-family: monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      background: #e2e8f0;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 9px;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.5px;
+      user-select: none;
+    }
+    .vbadge:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: #dbeafe;
+    }
 
     .controls { display: flex; gap: 8px; flex-wrap: wrap; }
     input[type="search"], select {
@@ -194,6 +218,83 @@
     .btn-primary { background: var(--primary); color: white; }
     .btn-secondary { background: #e2e8f0; color: var(--text-main); }
 
+    /* Modal Overlay & Maintenance Box System */
+    .moverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 600;
+      backdrop-filter: blur(6px);
+    }
+    .moverlay.hidden { display: none !important; }
+    .mbox {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px 16px 0 0;
+      width: 100%;
+      max-width: 500px;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding-bottom: env(safe-area-inset-bottom, 12px);
+    }
+    .mbox.sm { max-height: 80vh; }
+    .mhdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .mbody { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+    .mfoot { padding: 14px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+
+    /* Preference list & Toggles */
+    .pref-list { display: flex; flex-direction: column; gap: 1px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+    .pref-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: #f8fafc;
+      cursor: pointer;
+      font-size: 0.87rem;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .pref-row:last-child { border-bottom: none; }
+    .pref-row-icon { font-size: 1.1rem; width: 22px; text-align: center; }
+    .pref-row-body { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .pref-row-label { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+    .pref-row-desc { font-size: 0.72rem; color: var(--text-muted); }
+    .ptog {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      appearance: none;
+      background: #cbd5e1;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .ptog::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.2s;
+    }
+    .ptog:checked { background: var(--primary); }
+    .ptog:checked::after { transform: translateX(18px); }
+
+    .ibtn { background: none; border: none; cursor: pointer; font-size: 1.1rem; color: var(--text-muted); }
+
     /* עיצוב התראות ובאנר אופליין */
     .offline-banner {
       background: #ef4444;
@@ -243,7 +344,11 @@
 
   <header>
     <div class="header-top">
-      <div class="header-title">📌 המקומות שלי</div>
+      <div class="header-title">
+        📌 המקומות שלי
+        <!-- מספר הגרסה בסרגל העליון -->
+        <span id="version-badge" class="vbadge" title="לחץ לאיפוס ותחזוקת מערכת">v4.5.3</span>
+      </div>
       <div>
         <button class="btn-icon-header" onclick="openHomePage()" title="אתר בית">🏠 בית</button>
         <button class="btn-icon-header" onclick="syncFromSheet()" title="רענן מגיליון">🔄 רענון</button>
@@ -373,18 +478,90 @@
       <hr style="border: 0; border-top: 1px solid var(--border); margin: 8px 0;">
 
       <div class="form-group">
-        <label style="color:var(--danger)">⚠️ איפוס נתונים מקומיים</label>
-        <button type="button" class="btn" style="background:#fee2e2; color:var(--danger); font-weight:600" onclick="clearLocalData()">🗑️ נקה נתונים מקומיים</button>
+        <label style="color:var(--danger)">🛡️ איפוס ותחזוקת מערכת מתקדמת</label>
+        <button type="button" class="btn" style="background:#fee2e2; color:var(--danger); font-weight:600" onclick="openResetMaintenanceModal()">🛡️ פתח מודאל איפוס ותחזוקה</button>
       </div>
 
       <div class="modal-buttons" style="margin-top: 12px;">
         <button type="button" class="btn btn-secondary" onclick="closeSettingsPage()">ביטול</button>
         <button type="button" class="btn btn-primary" onclick="saveSettings()">שמירת הגדרות</button>
       </div>
+
+      <!-- מספר הגרסה בתחתית ההגדרות -->
+      <div style="text-align: center; margin-top: 10px;">
+        <span id="menu-vbadge" class="vbadge" title="לחץ לאיפוס ותחזוקת מערכת">v4.5.3</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       RESET & MAINTENANCE MODAL (מודאל איפוס מתוך index_2.html)
+       ═══════════════════════════════════════════════════════ -->
+  <div id="modal-reset" class="moverlay hidden" role="dialog" aria-modal="true">
+    <div class="mbox sm">
+      <div class="mhdr">
+        <h2 style="color:var(--danger); font-size: 1rem;">⚠️ איפוס ותחזוקת מערכת</h2>
+        <button class="ibtn" id="btn-close-reset" onclick="closeResetModal()">✕</button>
+      </div>
+      
+      <div class="mbody">
+        <div style="background:#fee2e2; border:1px solid rgba(239,68,68,0.3); border-radius:var(--rs); padding:11px 13px; font-size:.82rem; color:var(--text-main); line-height:1.5">
+          <strong>אזהרה:</strong> איפוס הנתונים ימחק את המידע המקומי שנבחר. מומלץ לבצע ייצוא/גיבוי לפני הפעולה.
+        </div>
+
+        <div class="form-group" style="margin-top:6px">
+          <label style="font-size:0.8rem; font-weight:bold; color:var(--text-muted)">בחר רכיבים לאיפוס:</label>
+          <div class="pref-list">
+            
+            <label class="pref-row">
+              <span class="pref-row-icon">📌</span>
+              <span class="pref-row-body">
+                <span class="pref-row-label">רשימת מקומות מקומית</span>
+                <span class="pref-row-desc">מחק את כל המקומות השמורים במכשיר זה</span>
+              </span>
+              <input type="checkbox" id="reset-opt-reports" class="ptog" checked/>
+            </label>
+
+            <label class="pref-row">
+              <span class="pref-row-icon">⏳</span>
+              <span class="pref-row-body">
+                <span class="pref-row-label">תור פעולות אופליין</span>
+                <span class="pref-row-desc">נקה שינויים שלא מסונכרנים עדיין מול הגיליון</span>
+              </span>
+              <input type="checkbox" id="reset-opt-queue" class="ptog"/>
+            </label>
+
+            <label class="pref-row">
+              <span class="pref-row-icon">⚙️</span>
+              <span class="pref-row-body">
+                <span class="pref-row-label">הגדרות אפליקציה וחיבור</span>
+                <span class="pref-row-desc">אפס כתובת Web App של Google Apps Script</span>
+              </span>
+              <input type="checkbox" id="reset-opt-settings" class="ptog"/>
+            </label>
+
+            <label class="pref-row">
+              <span class="pref-row-icon">🔄</span>
+              <span class="pref-row-body">
+                <span class="pref-row-label" style="color:var(--danger)">ניקוי זיכרון מטמון (Cache & PWA)</span>
+                <span class="pref-row-desc">רענון גרסה כפוי והורדת קבצי המערכת מחדש</span>
+              </span>
+              <input type="checkbox" id="reset-opt-cache" class="ptog" checked/>
+            </label>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="mfoot">
+        <button class="btn btn-secondary" style="flex:1" id="btn-reset-cancel" onclick="closeResetModal()">ביטול</button>
+        <button class="btn" style="flex:1; background:var(--danger); color:white; font-weight:bold" id="btn-reset-confirm" onclick="executeReset()">🗑️ בצע איפוס</button>
+      </div>
     </div>
   </div>
 
   <script>
+    const VER = "4.5.3";
     let SCRIPT_URL = localStorage.getItem("script_url") || "";
     let places = JSON.parse(localStorage.getItem("places_data") || "[]");
     let filterFavOnly = false;
@@ -399,6 +576,7 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
+      vBadgeInit();
       renderPlaces();
       if (SCRIPT_URL) {
         syncFromSheet();
@@ -406,6 +584,96 @@
         openSettingsPage();
       }
     });
+
+    /* פידבק רטט הפטי (Buzz) ללחיצות */
+    function buzz(pattern = [20]) {
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate(pattern); } catch (_) {}
+      }
+    }
+
+    /* ─── לוגיקת כפתור מספר הגרסה (Version Badge System) ─── */
+    function vBadgeInit() {
+      const badges = [document.getElementById('version-badge'), document.getElementById('menu-vbadge')];
+      badges.forEach(el => {
+        if (!el) return;
+        el.textContent = 'v' + VER;
+        el.addEventListener('click', () => {
+          buzz([20, 30, 20]);
+          openResetMaintenanceModal();
+        });
+      });
+    }
+
+    /* ─── מודאל איפוס ותחזוקת מערכת (Reset Maintenance Logic) ─── */
+    function openResetMaintenanceModal() {
+      const modal = document.getElementById('modal-reset');
+      if (modal) {
+        modal.classList.remove('hidden');
+        const settingsPageView = document.getElementById('settingsPageView');
+        if (settingsPageView) settingsPageView.classList.remove('active');
+      }
+    }
+
+    function closeResetModal() {
+      const modal = document.getElementById('modal-reset');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function executeReset() {
+      const clearPlaces   = document.getElementById('reset-opt-reports')?.checked;
+      const clearQueue    = document.getElementById('reset-opt-queue')?.checked;
+      const clearSettings = document.getElementById('reset-opt-settings')?.checked;
+      const clearCache    = document.getElementById('reset-opt-cache')?.checked;
+
+      if (!clearPlaces && !clearQueue && !clearSettings && !clearCache) {
+        showToast("לא נבחר רכיב לאיפוס", "warning");
+        return;
+      }
+
+      if (!confirm("האם אתה בטוח שברצונך לבצע איפוס לרכיבים שנבחרו?")) {
+        return;
+      }
+
+      try {
+        if (clearPlaces) {
+          localStorage.removeItem('places_data');
+          places = [];
+        }
+
+        if (clearQueue) {
+          localStorage.removeItem('places_action_queue');
+        }
+
+        if (clearSettings) {
+          localStorage.removeItem('script_url');
+          SCRIPT_URL = "";
+        }
+
+        if (clearCache) {
+          if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map(name => caches.delete(name)));
+          }
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (let registration of registrations) {
+              await registration.unregister();
+            }
+          }
+        }
+
+        showToast("האיפוס בוצע בהצלחה! מרענן...", "success");
+
+        setTimeout(() => {
+          window.location.reload(true);
+        }, 800);
+
+      } catch (err) {
+        console.error('[Reset Error]', err);
+        showToast("אירעה שגיאה במהלך האיפוס", "error");
+      }
+    }
 
     function saveLocal() {
       localStorage.setItem("places_data", JSON.stringify(places));
@@ -641,17 +909,6 @@
         }
       };
       reader.readAsText(file);
-    }
-
-    /* איפוס נתונים מקומיים */
-    function clearLocalData() {
-      if (!confirm("האם אתה בטוח שברצונך לנקות את כל הנתונים המקומיים מהמכשיר?")) return;
-      places = [];
-      localStorage.removeItem("places_data");
-      localStorage.removeItem("places_action_queue");
-      renderPlaces();
-      closeSettingsPage();
-      showToast("הנתונים המקומיים נוקו", "warning");
     }
 
     /* ניהול כרטיסיות ותצוגה */

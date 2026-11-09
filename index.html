@@ -142,10 +142,13 @@
 </head>
 <body>
 
-  <header>
+<header>
     <div class="header-top">
       <div class="header-title">📌 המקומות שלי</div>
-      <button class="btn-icon-header" onclick="openSettingsModal()" title="הגדרות">⚙️ הגדרות</button>
+      <div>
+        <button class="btn-icon-header" onclick="syncFromSheet()" title="רענן מגיליון">🔄 רענון</button>
+        <button class="btn-icon-header" onclick="openSettingsModal()" title="הגדרות">⚙️ הגדרות</button>
+      </div>
     </div>
     <div class="controls">
       <input type="search" id="searchInput" placeholder="חיפוש לפי שם או כתובת..." oninput="renderPlaces()">
@@ -391,14 +394,18 @@
       deleteFromSheet(id);
     }
 
-    /* תקשורת מול Google Apps Script */
+/* תקשורת מול Google Apps Script */
     async function syncFromSheet() {
       if (!SCRIPT_URL) return;
       try {
         const res = await fetch(`${SCRIPT_URL}?action=getPlaces`);
         const data = await res.json();
         if (data.places) {
-          places = data.places;
+          // הקצאת מזהה ייחודי זמני לרשומות שנוספו ידנית בגיליון ללא Record_ID
+          places = data.places.map((p, idx) => ({
+            ...p,
+            id: p.id || "place_sheet_" + Date.now() + "_" + idx
+          }));
           saveLocal();
           renderPlaces();
         }

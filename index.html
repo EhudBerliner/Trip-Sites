@@ -340,10 +340,11 @@
     </div>
   </div>
 
-  <!-- Modal הגדרות -->
+<!-- Modal הגדרות -->
   <div class="modal-backdrop" id="settingsModalBackdrop">
     <div class="modal">
-      <h3>⚙️ הגדרות חיבור ל-Google Sheets</h3>
+      <h3>⚙️ הגדרות וניהול נתונים</h3>
+      
       <div class="form-group">
         <label>כתובת ה-Web App של Google Apps Script (URL):</label>
         <input type="url" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
@@ -352,7 +353,28 @@
         </small>
       </div>
 
-      <div class="modal-buttons">
+      <hr style="border: 0; border-top: 1px solid var(--border); margin: 8px 0;">
+
+      <div class="form-group">
+        <label>📥 ייבוא / 📤 ייצוא נתונים מקומיים</label>
+        <div style="display: flex; gap: 8px; margin-top: 4px;">
+          <button type="button" class="btn btn-secondary" style="flex:1" onclick="exportPlacesJSON()">📤 ייצוא JSON</button>
+          <button type="button" class="btn btn-secondary" style="flex:1" onclick="exportPlacesCSV()">📤 ייצוא CSV</button>
+        </div>
+        <div style="margin-top: 8px;">
+          <input type="file" id="importFileInput" accept=".json,.csv" style="display:none" onchange="importPlacesFile(event)">
+          <button type="button" class="btn btn-secondary" style="width:100%" onclick="document.getElementById('importFileInput').click()">📥 ייבוא מקובץ (CSV / JSON)</button>
+        </div>
+      </div>
+
+      <hr style="border: 0; border-top: 1px solid var(--border); margin: 8px 0;">
+
+      <div class="form-group">
+        <label style="color:var(--danger)">⚠️ איפוס נתונים מקומיים</label>
+        <button type="button" class="btn" style="background:#fee2e2; color:var(--danger); font-weight:600" onclick="clearLocalData()">🗑️ נקה נתונים מקומיים</button>
+      </div>
+
+      <div class="modal-buttons" style="margin-top: 12px;">
         <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">ביטול</button>
         <button type="button" class="btn btn-primary" onclick="saveSettings()">שמירת הגדרות</button>
       </div>
@@ -439,7 +461,7 @@ let SCRIPT_URL = localStorage.getItem("script_url") || "";
       localStorage.setItem("places_data", JSON.stringify(places));
     }
 
-    /* ניהול מודאל הגדרות */
+/* ניהול מודאל הגדרות, ייבוא/ייצוא ואיפוס נתונים */
     function openSettingsModal() {
       document.getElementById("scriptUrlInput").value = SCRIPT_URL;
       document.getElementById("settingsModalBackdrop").classList.add("active");
@@ -455,6 +477,119 @@ let SCRIPT_URL = localStorage.getItem("script_url") || "";
       localStorage.setItem("script_url", url);
       closeSettingsModal();
       if (SCRIPT_URL) syncFromSheet();
+    }
+
+    /* ייצוא נתונים לקובץ JSON */
+    function exportPlacesJSON() {
+      if (places.length === 0) {
+        showToast("אין נתונים לייצוא", "warning");
+        return;
+      }
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(places, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `places_backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("קובץ JSON יורד בהצלחה");
+    }
+
+    /* ייצוא נתונים לקובץ CSV */
+    function exportPlacesCSV() {
+      if (places.length === 0) {
+        showToast("אין נתונים לייצוא", "warning");
+        return;
+      }
+      const headers = ["Record_ID", "Timestamp", "Name", "Category", "Address_Text", "Google_Maps_URL", "Rating", "Tags", "Description", "Is_Favorite"];
+      const rows = places.map(p => [
+        `"${p.id || ''}"`,
+        `"${p.timestamp || ''}"`,
+        `"${(p.name || '').replace(/"/g, '""')}"`,
+        `"${(p.category || '').replace(/"/g, '""')}"`,
+        `"${(p.addressText || '').replace(/"/g, '""')}"`,
+        `"${(p.googleMapsUrl || '').replace(/"/g, '""')}"`,
+        p.rating || 5,
+        `"${Array.isArray(p.tags) ? p.tags.join(', ') : ''}"`,
+        `"${(p.description || '').replace(/"/g, '""')}"`,
+        p.isFavorite ? "TRUE" : "FALSE"
+      ]);
+
+      const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `places_backup_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("קובץ CSV יורד בהצלחה");
+    }
+
+    /* ייבוא נתונים מקובץ חיצוני */
+    function importPlacesFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const content = e.target.result;
+          if (file.name.endsWith('.json')) {
+            const imported = JSON.parse(content);
+            if (Array.isArray(imported)) {
+              places = imported;
+              saveLocal();
+              renderPlaces();
+              showToast(`יובאו בהצלחה ${imported.length} מקומות מקובץ JSON`);
+            }
+          } else if (file.name.endsWith('.csv')) {
+            const lines = content.split('\n').filter(Boolean);
+            if (lines.length > 1) {
+              const newPlaces = [];
+              for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
+                if (cols[2]) { // Name exists
+                  newPlaces.push({
+                    id: cols[0] || "place_imp_" + Date.now() + "_" + i,
+                    timestamp: cols[1] || new Date().toISOString(),
+                    name: cols[2],
+                    category: cols[3] || "",
+                    addressText: cols[4] || "",
+                    googleMapsUrl: cols[5] || "",
+                    rating: parseFloat(cols[6]) || 5,
+                    tags: cols[7] ? cols[7].split(';').map(t => t.trim()) : [],
+                    description: cols[8] || "",
+                    isFavorite: cols[9] === "TRUE" || cols[9] === "true"
+                  });
+                }
+              }
+              if (newPlaces.length > 0) {
+                places = newPlaces;
+                saveLocal();
+                renderPlaces();
+                showToast(`יובאו בהצלחה ${newPlaces.length} מקומות מקובץ CSV`);
+              }
+            }
+          }
+        } catch (err) {
+          console.error("שגיאה בקריאת קובץ הייבוא:", err);
+          showToast("שגיאה בפורמט הקובץ", "error");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    /* איפוס נתונים מקומיים */
+    function clearLocalData() {
+      if (!confirm("האם אתה בטוח שברצונך לנקות את כל הנתונים המקומיים מהמכשיר?")) return;
+      places = [];
+      localStorage.removeItem("places_data");
+      localStorage.removeItem("places_action_queue");
+      renderPlaces();
+      closeSettingsModal();
+      showToast("הנתונים המקומיים נוקו", "warning");
     }
 
     /* ניהול כרטיסיות ותצוגה */

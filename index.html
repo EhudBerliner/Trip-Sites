@@ -4,9 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ניהול כרטיסיות מקומות</title>
-<!-- טעינת ספריית המפות Leaflet.js -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 
   <style>
     :root {
@@ -156,29 +154,47 @@
       justify-content: center;
     }
 
-    /* Modal */
-    .modal-backdrop {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.5);
+    /* Dedicated Page Views */
+    .page-view {
       display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--bg-color);
+      z-index: 200;
+      overflow-y: auto;
       padding: 16px;
     }
-    .modal-backdrop.active { display: flex; }
+    .page-view.active { display: block; }
 
-    .modal {
+    .page-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-header h2 { font-size: 1.25rem; font-weight: bold; }
+
+    .btn-back {
       background: var(--card-bg);
-      width: 100%;
-      max-width: 480px;
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .form-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      max-height: 90vh;
-      overflow-y: auto;
+      gap: 14px;
+      max-width: 600px;
+      margin: 0 auto;
     }
 
     .modal h3 { margin-bottom: 4px; }
@@ -247,9 +263,9 @@
   <header>
     <div class="header-top">
       <div class="header-title">📌 המקומות שלי</div>
-      <div>
+<div>
         <button class="btn-icon-header" onclick="syncFromSheet()" title="רענן מגיליון">🔄 רענון</button>
-        <button class="btn-icon-header" onclick="openSettingsModal()" title="הגדרות">⚙️ הגדרות</button>
+        <button class="btn-icon-header" onclick="openSettingsPage()" title="הגדרות">⚙️ הגדרות</button>
       </div>
     </div>
     <div class="controls">
@@ -261,34 +277,19 @@
     </div>
   </header>
 
-<main>
-    <!-- לשונית 1: רשימת כרטיסיות -->
-    <div id="cardsViewContainer" class="view-container active">
-      <div class="feed" id="placesFeed"></div>
+<!-- מסך ראשי: רשימת כרטיסיות -->
+  <main class="feed" id="placesFeed"></main>
+
+  <button class="fab" onclick="openPlacePage()">+</button>
+
+  <!-- דף ייעודי: הוספה / עריכת מקום -->
+  <div class="page-view" id="placePageView">
+    <div class="page-header">
+      <button class="btn-back" onclick="closePlacePage()">➡️ חזרה</button>
+      <h2 id="pageTitle">הוספת מקום חדש</h2>
     </div>
 
-    <!-- לשונית 2: תצוגת מפה -->
-    <div id="mapViewContainer" class="view-container" style="padding: 16px;">
-      <div id="mapView"></div>
-    </div>
-  </main>
-
-  <button class="fab" onclick="openModal()">+</button>
-
-  <!-- סרגל ניווט תחתון -->
-  <nav class="bottom-nav">
-    <button class="nav-item active" id="tabCardsBtn" onclick="switchTab('cards')">
-      <span>🎴</span> כרטיסיות
-    </button>
-    <button class="nav-item" id="tabMapBtn" onclick="switchTab('map')">
-      <span>🗺️</span> מפה
-    </button>
-  </nav>
-
-  <!-- Modal עריכה/הוספה -->
-  <div class="modal-backdrop" id="modalBackdrop">
-    <div class="modal">
-      <h3 id="modalTitle">הוספת מקום חדש</h3>
+    <div class="form-container">
       <form id="placeForm" onsubmit="handleFormSubmit(event)">
         <input type="hidden" id="placeId">
         
@@ -332,19 +333,22 @@
           <label for="isFavoriteInput">סימון כמועדף ★</label>
         </div>
 
-        <div class="modal-buttons">
-          <button type="button" class="btn btn-secondary" onclick="closeModal()">ביטול</button>
+        <div class="modal-buttons" style="margin-top: 12px;">
+          <button type="button" class="btn btn-secondary" onclick="closePlacePage()">ביטול</button>
           <button type="submit" class="btn btn-primary">שמירה</button>
         </div>
       </form>
     </div>
   </div>
 
-<!-- Modal הגדרות -->
-  <div class="modal-backdrop" id="settingsModalBackdrop">
-    <div class="modal">
-      <h3>⚙️ הגדרות וניהול נתונים</h3>
-      
+  <!-- דף ייעודי: הגדרות וניהול נתונים -->
+  <div class="page-view" id="settingsPageView">
+    <div class="page-header">
+      <button class="btn-back" onclick="closeSettingsPage()">➡️ חזרה</button>
+      <h2>⚙️ הגדרות וניהול נתונים</h2>
+    </div>
+
+    <div class="form-container">
       <div class="form-group">
         <label>כתובת ה-Web App של Google Apps Script (URL):</label>
         <input type="url" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
@@ -375,7 +379,7 @@
       </div>
 
       <div class="modal-buttons" style="margin-top: 12px;">
-        <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">ביטול</button>
+        <button type="button" class="btn btn-secondary" onclick="closeSettingsPage()">ביטול</button>
         <button type="button" class="btn btn-primary" onclick="saveSettings()">שמירת הגדרות</button>
       </div>
     </div>
@@ -461,22 +465,40 @@ let SCRIPT_URL = localStorage.getItem("script_url") || "";
       localStorage.setItem("places_data", JSON.stringify(places));
     }
 
-/* ניהול מודאל הגדרות, ייבוא/ייצוא ואיפוס נתונים */
-    function openSettingsModal() {
-      document.getElementById("scriptUrlInput").value = SCRIPT_URL;
-      document.getElementById("settingsModalBackdrop").classList.add("active");
+function handleFormSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById("placeId").value || "place_" + Date.now();
+      const tagsRaw = document.getElementById("tagsInput").value;
+
+      const placeData = {
+        id: id,
+        timestamp: new Date().toISOString(),
+        name: document.getElementById("nameInput").value,
+        category: document.getElementById("categoryInput").value,
+        addressText: document.getElementById("addressTextInput").value,
+        googleMapsUrl: document.getElementById("googleMapsUrlInput").value,
+        rating: parseFloat(document.getElementById("ratingInput").value) || 0,
+        tags: tagsRaw ? tagsRaw.split(",").map(t => t.trim()).filter(Boolean) : [],
+        description: document.getElementById("descriptionInput").value,
+        isFavorite: document.getElementById("isFavoriteInput").checked
+      };
+
+      const index = places.findIndex(p => p.id === id);
+      if (index >= 0) {
+        places[index] = placeData;
+      } else {
+        places.unshift(placeData);
+      }
+
+      saveLocal();
+      renderPlaces();
+      closeModal();
+      syncPlaceToSheet(placeData);
     }
 
-    function closeSettingsModal() {
-      document.getElementById("settingsModalBackdrop").classList.remove("active");
-    }
-
-    function saveSettings() {
-      const url = document.getElementById("scriptUrlInput").value.trim();
-      SCRIPT_URL = url;
-      localStorage.setItem("script_url", url);
-      closeSettingsModal();
-      if (SCRIPT_URL) syncFromSheet();
+    function editPlace(id) {
+      const place = places.find(p => p.id === id);
+      if (place) openModal(place);
     }
 
     /* ייצוא נתונים לקובץ JSON */
@@ -668,7 +690,7 @@ let SCRIPT_URL = localStorage.getItem("script_url") || "";
       document.getElementById("modalBackdrop").classList.remove("active");
     }
 
-    function handleFormSubmit(e) {
+function handleFormSubmit(e) {
       e.preventDefault();
       const id = document.getElementById("placeId").value || "place_" + Date.now();
       const tagsRaw = document.getElementById("tagsInput").value;
@@ -695,13 +717,13 @@ let SCRIPT_URL = localStorage.getItem("script_url") || "";
 
       saveLocal();
       renderPlaces();
-      closeModal();
+      closePlacePage();
       syncPlaceToSheet(placeData);
     }
 
     function editPlace(id) {
       const place = places.find(p => p.id === id);
-      if (place) openModal(place);
+      if (place) openPlacePage(place);
     }
 
     function deletePlace(id) {

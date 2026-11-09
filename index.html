@@ -139,10 +139,55 @@
     .btn-primary { background: var(--primary); color: white; }
     .btn-secondary { background: #e2e8f0; color: var(--text-main); }
   </style>
+<style>
+    /* עיצוב התראות ובאנר אופליין */
+    .offline-banner {
+      background: #ef4444;
+      color: white;
+      text-align: center;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: none;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .offline-banner.active { display: block; }
+
+    .toast-container {
+      position: fixed;
+      bottom: 84px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    .toast {
+      background: #1e293b;
+      color: white;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.3s ease;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { border-right: 4px solid #10b981; }
+    .toast.warning { border-right: 4px solid #f59e0b; }
+    .toast.error { border-right: 4px solid #ef4444; }
+  </style>
 </head>
 <body>
 
-<header>
+  <div class="offline-banner" id="offlineBanner">⚡ מצב אופליין - השינויים יישמרו מקומית ויסתנכרנו עם חיבור מחדש לרשת</div>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <header>
     <div class="header-top">
       <div class="header-title">📌 המקומות שלי</div>
       <div>
@@ -394,18 +439,109 @@
       deleteFromSheet(id);
     }
 
-/* תקשורת מול Google Apps Script */
+/* ניהול התראות Toast ובאנר אופליין */
+    function showToast(message, type = "success") {
+      const container = document.getElementById("toastContainer");
+      if (!container) return;
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.innerText = message;
+      container.appendChild(toast);
+      
+      setTimeout(() => toast.classList.add("show"), 10);
+      setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    function updateOnlineStatus() {
+      const banner = document.getElementById("offlineBanner");
+      if (!navigator.onLine) {
+        if (banner) banner.classList.add("active");
+        showToast("עברת למצב אופליין", "warning");
+      } else {
+        if (banner) banner.classList.remove("active");
+        flushActionQueue();
+      }
+    }
+
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        flushActionQueue();
+        syncFromSheet();
+      }
+    });
+
+    /* תור פעולות אופליין (Offline Action Queue) */
+    function getActionQueue() {
+      return JSON.parse(localStorage.getItem("places_action_queue") || "[]");
+    }
+
+    function saveActionQueue(queue) {
+      localStorage.setItem("places_action_queue", JSON.stringify(queue));
+    }
+
+    function enqueueAction(actionType, payload) {
+      const queue = getActionQueue();
+      queue.push({ id: Date.now(), action: actionType, payload: payload, timestamp: new Date().toISOString() });
+      saveActionQueue(queue);
+      showToast("הפעולה שנשמרה באופליין תסתנכרן בהתחברות לרשת", "warning");
+    }
+
+    async function flushActionQueue() {
+      if (!SCRIPT_URL || !navigator.onLine) return;
+      const queue = getActionQueue();
+      if (queue.length === 0) return;
+
+      console.log(`מבצע סנכרון עבור ${queue.length} פעולות ממתינות בתור...`);
+      const remainingQueue = [];
+
+      for (const item of queue) {
+        try {
+          if (item.action === "editPlace") {
+            await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "editPlace", place: item.payload }) });
+          } else if (item.action === "delete") {
+            await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "delete", id: item.payload }) });
+          }
+        } catch (err) {
+          console.error("נכשלה שליחת פעולה בתור:", item, err);
+          remainingQueue.push(item);
+        }
+      }
+
+      saveActionQueue(remainingQueue);
+      if (remainingQueue.length === 0) {
+        showToast("כל הפעולות מאופליין סונכרנו בהצלחה!", "success");
+        syncFromSheet();
+      }
+    }
+
+    /* תקשורת מול Google Apps Script המשודרגת עם Queue Support */
     async function syncFromSheet() {
       if (!SCRIPT_URL) return;
       try {
-        const res = await fetch(`${SCRIPT_URL}?action=getPlaces`);
+        console.log("מתחיל משיכת נתונים מהגיליון...");
+        const res = await fetch(`${SCRIPT_URL}?action=getPlaces`, { method: "GET", redirect: "follow" });
+        if (!res.ok) throw new Error("תגובת שרת לא תקינה: " + res.status);
+        
         const data = await res.json();
-        if (data.places) {
-          // הקצאת מזהה ייחודי זמני לרשומות שנוספו ידנית בגיליון ללא Record_ID
+        if (Array.isArray(data.places)) {
           places = data.places.map((p, idx) => ({
-            ...p,
-            id: p.id || "place_sheet_" + Date.now() + "_" + idx
-          }));
+            id: String(p.id || p.Record_ID || "place_sheet_" + Date.now() + "_" + idx),
+            timestamp: p.timestamp || new Date().toISOString(),
+            name: String(p.name || p.Name || ""),
+            category: String(p.category || p.Category || ""),
+            addressText: String(p.addressText || p.Address_Text || ""),
+            googleMapsUrl: String(p.googleMapsUrl || p.Google_Maps_URL || ""),
+            rating: parseFloat(p.rating || p.Rating) || 5,
+            tags: Array.isArray(p.tags) ? p.tags : (p.tags || p.Tags || "").toString().split(',').map(t => t.trim()).filter(Boolean),
+            description: String(p.description || p.Description || ""),
+            isFavorite: p.isFavorite === true || p.isFavorite === "TRUE" || p.Is_Favorite === true || p.Is_Favorite === "TRUE"
+          })).filter(p => p.name.trim() !== "");
+
           saveLocal();
           renderPlaces();
         }
@@ -416,25 +552,47 @@
 
     async function syncPlaceToSheet(place) {
       if (!SCRIPT_URL) return;
+      if (!navigator.onLine) {
+        enqueueAction("editPlace", place);
+        return;
+      }
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 שניות Timeout
+        
         await fetch(SCRIPT_URL, {
           method: "POST",
-          body: JSON.stringify({ action: "editPlace", place: place })
+          body: JSON.stringify({ action: "editPlace", place: place }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
+        showToast("המקום נשמר וסונכרן בהצלחה");
       } catch (err) {
-        console.error("שגיאה בשליחת מקום לגיליון:", err);
+        console.warn("שליחה בשרת נכשלה, מעביר לתור אופליין:", err);
+        enqueueAction("editPlace", place);
       }
     }
 
     async function deleteFromSheet(id) {
       if (!SCRIPT_URL) return;
+      if (!navigator.onLine) {
+        enqueueAction("delete", id);
+        return;
+      }
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
         await fetch(SCRIPT_URL, {
           method: "POST",
-          body: JSON.stringify({ action: "delete", id: id })
+          body: JSON.stringify({ action: "delete", id: id }),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
+        showToast("המקום נמחק מהגיליון");
       } catch (err) {
-        console.error("שגיאה במחיקה מהגיליון:", err);
+        console.warn("מחיקה בשרת נכשלה, מעבירה לתור אופליין:", err);
+        enqueueAction("delete", id);
       }
     }
 

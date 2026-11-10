@@ -1,11 +1,10 @@
-const CACHE_NAME = 'mytrip-krakow-v3';
+const CACHE_NAME = 'mytrip-krakow-v4';
 const ASSETS_TO_CACHE = [
-  'index.html',
-  'manifest.json',
+  './index.html',
+  './manifest.json',
   'https://cdn-icons-png.flaticon.com/512/854/854878.png'
 ];
 
-// התקנת ה-Service Worker ושמירת נכסים ב-Cache
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -16,7 +15,6 @@ self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
 
-// אקטיבציה וניקוי Caches ישנים
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keyList) => {
@@ -33,9 +31,7 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// אסטרטגיית Cache First מול רשת
 self.addEventListener('fetch', (e) => {
-  // בקשות ל-Google Apps Script לא נשמרות ב-Cache הסטטי כדי למנוע שיבוש בסנכרון
   if (e.request.url.includes('script.google.com')) {
     return;
   }
@@ -44,7 +40,6 @@ self.addEventListener('fetch', (e) => {
     caches.match(e.request).then((response) => {
       return response || fetch(e.request).then((fetchRes) => {
         return caches.open(CACHE_NAME).then((cache) => {
-          // שמירה ב-Cache של משאבים חדשים שאינם בקשות Script
           if (e.request.method === 'GET' && !e.request.url.includes('script.google.com')) {
             cache.put(e.request, fetchRes.clone());
           }
@@ -52,7 +47,6 @@ self.addEventListener('fetch', (e) => {
         });
       });
     }).catch(() => {
-      // אם אין רשת ואין ב-Cache
       if (e.request.mode === 'navigate') {
         return caches.match('./index.html');
       }

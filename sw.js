@@ -1,5 +1,5 @@
 /* ─── PWA Service Worker - MyTrip Krakow ─── */
-const APP_VERSION = '1.0.3';
+const APP_VERSION = '1.0.4';
 const CACHE_NAME = `mytrip-krakow-v${APP_VERSION}`;
 
 const ASSETS_TO_CACHE = [

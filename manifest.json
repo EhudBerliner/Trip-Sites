@@ -1,9 +1,9 @@
 {
-  "short_name": "MyTrip ",
-  "name": "My Trip",
-  "id": "/krakow-2026/",
-  "scope": "/krakow-2026/",
-  "start_url": "/krakow-2026/index.html",
+  "short_name": "MyTrip",
+  "name": "MyTrip Krakow",
+  "id": "./",
+  "scope": "./",
+  "start_url": "./index.html",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/854/854878.png",

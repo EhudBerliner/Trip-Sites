@@ -5,13 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ניהול כרטיסיות מקומות</title>
 
-
   <!-- PWA Manifest & Theme Settings -->
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#2563eb">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="MyTrip Krakow">
+  <meta name="apple-mobile-web-app-title" content="MyTrip Krakow">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/854/854878.png">
 
   <style>
@@ -87,28 +86,21 @@
     }
     .fav-filter-btn.active { background: #fef3c7; border-color: var(--star); color: #b45309; }
 
-    /* ─ CURRENCY CONVERTER CARD STYLES ─ */
-    .converter-card {
+    /* ─ CURRENCY CONVERTER PAGE STYLES ─ */
+    .converter-card-page {
       background: var(--card-bg);
       border-radius: var(--radius);
-      padding: 16px;
-      margin: 16px;
+      padding: 20px;
       box-shadow: var(--shadow);
       border: 1px solid var(--border);
-    }
-    .converter-card h2 {
-      font-size: 1.05rem;
-      margin-bottom: 12px;
       display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--primary-dark);
+      flex-direction: column;
+      gap: 16px;
     }
     .converter-input-group {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      margin-bottom: 12px;
     }
     .converter-input-group label {
       font-size: 0.85rem;
@@ -117,24 +109,23 @@
     }
     .converter-input-group input {
       width: 100%;
-      padding: 10px 12px;
-      font-size: 1.1rem;
+      padding: 12px;
+      font-size: 1.2rem;
       border: 1px solid var(--border);
       border-radius: 8px;
       outline: none;
     }
     .quick-amounts {
       display: flex;
-      gap: 6px;
+      gap: 8px;
       flex-wrap: wrap;
-      margin-bottom: 12px;
     }
     .quick-btn {
       background: #edf2f7;
       border: none;
-      padding: 6px 12px;
+      padding: 8px 14px;
       border-radius: 20px;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       font-weight: 600;
       color: var(--text-main);
       cursor: pointer;
@@ -146,7 +137,7 @@
       grid-template-columns: repeat(3, 1fr);
       gap: 8px;
       background: #f8fafc;
-      padding: 10px;
+      padding: 14px;
       border-radius: 8px;
       text-align: center;
       border: 1px solid var(--border);
@@ -157,11 +148,31 @@
       color: var(--text-muted);
     }
     .rate-item strong {
-      font-size: 1rem;
+      font-size: 1.1rem;
       color: var(--primary);
     }
+    .rate-status-info {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: #f1f5f9;
+      padding: 8px 12px;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .rate-alert-banner {
+      background: #fee2e2;
+      color: var(--danger);
+      border: 1px solid #fca5a5;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      display: none;
+    }
 
-    .feed { padding: 0 16px 16px 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .feed { padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 
     .card {
       background: var(--card-bg);
@@ -425,9 +436,10 @@
       <div class="header-title">
         📌 המקומות שלי
         <!-- מספר הגרסה בסרגל העליון -->
-        <span id="version-badge" class="vbadge" title="לחץ לאיפוס ותחזוקת מערכת">1.0.3</span>
+        <span id="version-badge" class="vbadge" title="לחץ לאיפוס ותחזוקת מערכת">1.0.4</span>
       </div>
       <div>
+        <button class="btn-icon-header" onclick="openCurrencyPage()" title="מחשבון המרת מטבע">🔀 המרת מטבע</button>
         <button class="btn-icon-header" onclick="openHomePage()" title="אתר בית">🏠 בית</button>
         <button class="btn-icon-header" onclick="syncFromSheet()" title="רענן מגיליון">🔄 רענון</button>
         <button class="btn-icon-header" onclick="openSettingsPage()" title="הגדרות">⚙️ הגדרות</button>
@@ -442,40 +454,63 @@
     </div>
   </header>
 
-  <!-- 🔀 מחשבון המרת מטבע (PLN) -->
-  <div class="converter-card">
-    <h2>🔀 מחשבון המרת מטבע (PLN)</h2>
-    <div class="converter-input-group">
-      <label for="pln-amount">סכום בזלוטי (PLN):</label>
-      <input type="number" id="pln-amount" value="100" placeholder="הכנס סכום בזלוטי">
-    </div>
-    <div class="quick-amounts">
-      <button class="quick-btn" onclick="setAmount(30)">30 zł</button>
-      <button class="quick-btn" onclick="setAmount(50)">50 zł</button>
-      <button class="quick-btn" onclick="setAmount(100)">100 zł</button>
-      <button class="quick-btn" onclick="setAmount(200)">200 zł</button>
-      <button class="quick-btn" onclick="setAmount(500)">500 zł</button>
-    </div>
-    <div class="rates-grid">
-      <div class="rate-item">
-        <span>שקלים (ILS)</span>
-        <strong id="res-ils">-- ₪</strong>
-      </div>
-      <div class="rate-item">
-        <span>דולרים (USD)</span>
-        <strong id="res-usd">-- $</strong>
-      </div>
-      <div class="rate-item">
-        <span>אירו (EUR)</span>
-        <strong id="res-eur">-- €</strong>
-      </div>
-    </div>
-  </div>
-
   <!-- מסך ראשי: רשימת כרטיסיות -->
   <main class="feed" id="placesFeed"></main>
 
   <button class="fab" onclick="openPlacePage()">+</button>
+
+  <!-- דף ייעודי: מחשבון המרת מטבע (PLN) -->
+  <div class="page-view" id="currencyPageView">
+    <div class="page-header">
+      <button class="btn-back" onclick="closeCurrencyPage()">➡️ חזרה</button>
+      <h2>🔀 מחשבון המרת מטבע (PLN)</h2>
+    </div>
+
+    <div class="form-container">
+      <div class="converter-card-page">
+        <div class="converter-input-group">
+          <label for="pln-amount">סכום בזלוטי (PLN):</label>
+          <input type="number" id="pln-amount" value="100" placeholder="הכנס סכום בזלוטי">
+        </div>
+
+        <div class="quick-amounts">
+          <button class="quick-btn" onclick="setAmount(30)">30 zł</button>
+          <button class="quick-btn" onclick="setAmount(50)">50 zł</button>
+          <button class="quick-btn" onclick="setAmount(100)">100 zł</button>
+          <button class="quick-btn" onclick="setAmount(200)">200 zł</button>
+          <button class="quick-btn" onclick="setAmount(500)">500 zł</button>
+        </div>
+
+        <div class="rates-grid">
+          <div class="rate-item">
+            <span>שקלים (ILS)</span>
+            <strong id="res-ils">-- ₪</strong>
+          </div>
+          <div class="rate-item">
+            <span>דולרים (USD)</span>
+            <strong id="res-usd">-- $</strong>
+          </div>
+          <div class="rate-item">
+            <span>אירו (EUR)</span>
+            <strong id="res-eur">-- €</strong>
+          </div>
+        </div>
+
+        <div class="rate-status-info">
+          <div>🕒 <b>תאריך ושעת עדכון אחרון:</b> <span id="rateLastUpdated">טרם עודכן</span></div>
+          <div>ℹ️ <b>בסיס השער:</b> 1 PLN (זלוטי פולני)</div>
+        </div>
+
+        <div class="rate-alert-banner" id="rateAlertBanner">
+          ⚠️ אזהרה: חלק משערי המטבע לא התקבלו מהשרת והחישוב מתבסס על שער שמור/ברירת מחדל.
+        </div>
+
+        <button type="button" class="btn btn-primary" style="width:100%" onclick="userTriggerFetchRates()">
+          🔄 עדכן שערי מטבע עכשיו
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- דף ייעודי: הוספה / עריכת מקום -->
   <div class="page-view" id="placePageView">
@@ -597,7 +632,7 @@
 
       <!-- מספר הגרסה בתחתית ההגדרות -->
       <div style="text-align: center; margin-top: 10px;">
-        <span id="menu-vbadge" class="vbadge" title="לחץ לאיפוס ותחזוקת מערכת">1.0.3</span>
+        <span id="menu-vbadge" class="vbadge" title="לחץ לאיפוס ותחזוקת מערכת">1.0.4</span>
       </div>
     </div>
   </div>
@@ -669,22 +704,132 @@
   </div>
 
   <script>
-
-    const VER = "1.0.3";
+    const VER = "1.0.4";
     let SCRIPT_URL = localStorage.getItem("script_url") || "";
     let places = JSON.parse(localStorage.getItem("places_data") || "[]");
     let filterFavOnly = false;
 
-    /* ─── CURRENCY CONVERTER LOGIC ─── */
-    const RATE_ILS = 0.92;
-    const RATE_USD = 0.25;
-    const RATE_EUR = 0.23;
+    /* ─── DYNAMIC CURRENCY CONVERTER SYSTEM ─── */
+    let RATE_ILS = 0.92;
+    let RATE_USD = 0.25;
+    let RATE_EUR = 0.23;
+    let lastRatesUpdateTimestamp = null;
+    let isRatePartialError = false;
+
+    // טעינת שערים שמורים מ-LocalStorage במידה וקיימים
+    function loadSavedCurrencyRates() {
+      const saved = JSON.parse(localStorage.getItem("currency_rates_cache") || "{}");
+      if (saved.rates) {
+        RATE_ILS = saved.rates.ILS || RATE_ILS;
+        RATE_USD = saved.rates.USD || RATE_USD;
+        RATE_EUR = saved.rates.EUR || RATE_EUR;
+      }
+      if (saved.timestamp) {
+        lastRatesUpdateTimestamp = saved.timestamp;
+      }
+      updateRateUIInfo();
+    }
+
+    // בדיקה האם נדרש עדכון אוטומטי (אם עבר יום/תאריך חדש)
+    function shouldCheckDailyRateUpdate() {
+      if (!lastRatesUpdateTimestamp) return true;
+      const lastDate = new Date(lastRatesUpdateTimestamp).toDateString();
+      const nowDate = new Date().toDateString();
+      return lastDate !== nowDate;
+    }
+
+    // משיכת שערי מטבע בלייב מ-API
+    async function fetchLiveCurrencyRates(isManual = false) {
+      if (!navigator.onLine) {
+        if (isManual) showToast("אין חיבור לרשת - המערכת תמשיך להשתמש בשערים השמורים", "warning");
+        updateRateUIInfo();
+        return;
+      }
+
+      try {
+        const response = await fetch('https://open.er-api.com/v6/latest/PLN');
+        if (!response.ok) throw new Error("HTTP error " + response.status);
+        
+        const data = await response.json();
+        if (data && data.rates) {
+          isRatePartialError = false;
+          
+          if (data.rates.ILS) RATE_ILS = data.rates.ILS;
+          else isRatePartialError = true;
+
+          if (data.rates.USD) RATE_USD = data.rates.USD;
+          else isRatePartialError = true;
+
+          if (data.rates.EUR) RATE_EUR = data.rates.EUR;
+          else isRatePartialError = true;
+
+          lastRatesUpdateTimestamp = new Date().toISOString();
+
+          // שמירה מקומית לרציפות אופליין
+          localStorage.setItem("currency_rates_cache", JSON.stringify({
+            rates: { ILS: RATE_ILS, USD: RATE_USD, EUR: RATE_EUR },
+            timestamp: lastRatesUpdateTimestamp
+          }));
+
+          calculateCurrency();
+          updateRateUIInfo();
+
+          if (isManual) {
+            showToast("שערי המטבע עודכנו בהצלחה!", "success");
+          } else {
+            showToast("עדכון שערי מטבע יומי בוצע בהצלחה", "success");
+          }
+        } else {
+          throw new Error("Invalid API structure");
+        }
+      } catch (err) {
+        console.warn("[Currency API] Fetch failed, using cached rates:", err);
+        isRatePartialError = true;
+        updateRateUIInfo();
+        if (isManual) {
+          showToast("עדכון שערים נכשל - משתמש בשערים השמורים", "warning");
+        }
+      }
+    }
+
+    function userTriggerFetchRates() {
+      buzz([20, 30]);
+      fetchLiveCurrencyRates(true);
+    }
+
+    function updateRateUIInfo() {
+      const timeElem = document.getElementById("rateLastUpdated");
+      const bannerElem = document.getElementById("rateAlertBanner");
+
+      if (timeElem) {
+        if (lastRatesUpdateTimestamp) {
+          const d = new Date(lastRatesUpdateTimestamp);
+          timeElem.innerText = d.toLocaleDateString("he-IL") + " בשעה " + d.toLocaleTimeString("he-IL", { hour: '2-digit', minute: '2-digit' });
+        } else {
+          timeElem.innerText = "שער ברירת מחדל (לא בוצע עדכון רשת)";
+        }
+      }
+
+      if (bannerElem) {
+        if (isRatePartialError) {
+          bannerElem.style.display = "block";
+        } else {
+          bannerElem.style.display = "none";
+        }
+      }
+    }
 
     function initCurrencyConverter() {
       const plnInput = document.getElementById('pln-amount');
       if (plnInput) {
         plnInput.addEventListener('input', calculateCurrency);
-        calculateCurrency();
+      }
+      loadSavedCurrencyRates();
+      calculateCurrency();
+
+      // בדיקה ועדכון אוטומטי יומי
+      if (shouldCheckDailyRateUpdate()) {
+        fetchLiveCurrencyRates(false);
       }
     }
 
@@ -710,7 +855,17 @@
       }
     }
 
-// רישום Service Worker יחסי ומבודד עבור תת-התיקייה הנוכחית
+    /* ניהול דפי המערכת */
+    function openCurrencyPage() {
+      document.getElementById("currencyPageView").classList.add("active");
+      calculateCurrency();
+    }
+
+    function closeCurrencyPage() {
+      document.getElementById("currencyPageView").classList.remove("active");
+    }
+
+    // רישום Service Worker יחסי ומבודד עבור תת-התיקייה הנוכחית
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js', { scope: './' })
@@ -796,6 +951,7 @@
         }
 
         if (clearCache) {
+          localStorage.removeItem('currency_rates_cache');
           if ('caches' in window) {
             const cacheNames = await caches.keys();
             await Promise.all(cacheNames.map(name => caches.delete(name)));

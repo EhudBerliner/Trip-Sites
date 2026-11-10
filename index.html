@@ -669,6 +669,7 @@
   </div>
 
   <script>
+
     const VER = "4.5.3";
     let SCRIPT_URL = localStorage.getItem("script_url") || "";
     let places = JSON.parse(localStorage.getItem("places_data") || "[]");
@@ -709,13 +710,15 @@
       }
     }
 
-    // רישום Service Worker עבור PWA
+    // רישום Service Worker עבור PWA עם הגדרת Scope דינמית לפי התיקייה
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then((reg) => console.log('Service Worker נרשם בהצלחה:', reg.scope))
+        const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1) || './';
+        
+        navigator.serviceWorker.register(basePath + 'sw.js', { scope: basePath })
+          .then((reg) => console.log('Service Worker נרשם בהצלחה עבור Scope:', reg.scope))
           .catch((err) => console.error('שגיאה ברישום Service Worker:', err));
-      });
+          });
     }
 
     document.addEventListener("DOMContentLoaded", () => {

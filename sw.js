@@ -1,8 +1,7 @@
-const CACHE_NAME = 'places-app-v2';
+const CACHE_NAME = 'mytrip-krakow-v3';
 const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './manifest.json',
+  'index.html',
+  'manifest.json',
   'https://cdn-icons-png.flaticon.com/512/854/854878.png'
 ];
 

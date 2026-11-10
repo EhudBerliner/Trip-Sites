@@ -710,15 +710,13 @@
       }
     }
 
-    // רישום Service Worker עבור PWA עם הגדרת Scope דינמית לפי התיקייה
+// רישום Service Worker יחסי ומבודד עבור תת-התיקייה הנוכחית
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1) || './';
-        
-        navigator.serviceWorker.register(basePath + 'sw.js', { scope: basePath })
-          .then((reg) => console.log('Service Worker נרשם בהצלחה עבור Scope:', reg.scope))
+        navigator.serviceWorker.register('./sw.js', { scope: './' })
+          .then((reg) => console.log('Service Worker נרשם בהצלחה עבור Scope יחסי:', reg.scope))
           .catch((err) => console.error('שגיאה ברישום Service Worker:', err));
-          });
+      });
     }
 
     document.addEventListener("DOMContentLoaded", () => {
